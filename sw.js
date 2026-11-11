@@ -1,4 +1,4 @@
-const CACHE_NAME = 'wyntech-estoque-v3';
+const CACHE_NAME = 'wyntech-estoque-v4';
 const ASSETS = [
   './',
   './index.html',

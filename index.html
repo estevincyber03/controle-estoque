@@ -1262,6 +1262,7 @@
     const STORAGE_KEY_TIMESTAMPS = 'wyntech_inv_timestamps_v2';
     const STORAGE_KEY_RESET_AT = 'wyntech_inv_reset_at_v2';
     const STORAGE_KEY_CLIENT_ID = 'wyntech_inv_client_id_v2';
+    const STORAGE_KEY_CATALOG_TS = 'wyntech_inv_catalog_ts_v2';
 
     const CLOUD_API_URL = 'https://api.restful-api.dev/objects/ff808181a09d98f701a1cbaad8020bdb';
     const NTFY_TOPIC = 'wyntech_estoque_sync_prod_91827364';
@@ -1271,6 +1272,7 @@
 
     let countTimestamps = {};
     let lastResetAt = 0;
+    let catalogUpdatedAt = 0;
     let clientId = localStorage.getItem(STORAGE_KEY_CLIENT_ID);
     if (!clientId) {
       clientId = 'dev_' + Math.random().toString(36).slice(2, 10) + '_' + Date.now().toString(36);
@@ -1281,6 +1283,24 @@
     let syncPushTimer = null;
     let ntfyEventSource = null;
     let pendingCloudPush = false;
+    let isSyncingPhotos = false;
+    let lastPhotoSyncAt = 0;
+    const PHOTO_SYNC_INTERVAL_MS = 5 * 60 * 1000;
+    const CLOUD_SYNC_INTERVAL_MS = 30 * 1000;
+    const handledIncomingPhotoEvents = new Set();
+    const pendingIncomingPhotoEvents = new Set();
+    function incomingPhotoEventKey(code, ts, fallback) {
+      const eventTs = Number(ts) || 0;
+      return `${code}:${eventTs || fallback || 'legacy'}`;
+    }
+    function markIncomingPhotoEventHandled(eventKey) {
+      if (handledIncomingPhotoEvents.has(eventKey)) return false;
+      handledIncomingPhotoEvents.add(eventKey);
+      if (handledIncomingPhotoEvents.size > 500) {
+        handledIncomingPhotoEvents.delete(handledIncomingPhotoEvents.values().next().value);
+      }
+      return true;
+    }
     let peerInstance = null;
     let activePeerConns = [];
 
@@ -1357,9 +1377,12 @@
         countTimestamps = savedTs ? JSON.parse(savedTs) : {};
         const savedReset = localStorage.getItem(STORAGE_KEY_RESET_AT);
         lastResetAt = savedReset ? Number(savedReset) || 0 : 0;
+        const savedCatTs = localStorage.getItem(STORAGE_KEY_CATALOG_TS);
+        catalogUpdatedAt = savedCatTs ? Number(savedCatTs) || 0 : 0;
       } catch (e) {
         countTimestamps = {};
         lastResetAt = 0;
+        catalogUpdatedAt = 0;
       }
       let migrated = false;
       const now = Date.now();
@@ -1379,7 +1402,30 @@
       try {
         localStorage.setItem(STORAGE_KEY_TIMESTAMPS, JSON.stringify(countTimestamps));
         localStorage.setItem(STORAGE_KEY_RESET_AT, String(lastResetAt));
+        localStorage.setItem(STORAGE_KEY_CATALOG_TS, String(catalogUpdatedAt));
       } catch (e) {}
+    }
+
+    function broadcastCatalogToPeers() {
+      broadcastToPeers({
+        type: 'catalog_sync',
+        clientId,
+        items: inventoryItems,
+        ts: catalogUpdatedAt
+      });
+    }
+
+    function applyIncomingCatalog(items, ts) {
+      const incomingTs = Number(ts) || 0;
+      if (!Array.isArray(items) || !items.length) return;
+      if (incomingTs && catalogUpdatedAt && incomingTs <= catalogUpdatedAt) return;
+      catalogUpdatedAt = incomingTs || Date.now();
+      inventoryItems = items;
+      currentDeposito = 'ALL';
+      saveItemsToStorage();
+      saveTimestampsToStorage();
+      renderAll();
+      showToast(`CATÁLOGO SINCRONIZADO (${items.length} ITENS)`);
     }
 
     function applyIncomingCloudData(cloudData, fromRealtime = false) {
@@ -1491,39 +1537,7 @@
         }
       } catch (e) {}
 
-      try {
-        const ntfyRes = await fetch(`${NTFY_URL}/json?poll=1&since=24h&_t=${Date.now()}`, { cache: 'no-store' });
-        if (ntfyRes.ok) {
-          const text = await ntfyRes.text();
-          const lines = text.split('\n').filter(Boolean);
-          for (const line of lines) {
-            try {
-              const evt = JSON.parse(line);
-              if (evt && evt.event === 'message' && evt.message) {
-                const msg = JSON.parse(evt.message);
-                if (msg.type === 'snapshot' && msg.data) {
-                  const { uiChanged } = applyIncomingCloudData(msg.data);
-                  if (uiChanged) mergedAny = true;
-                } else if (msg.type === 'delta' && msg.key) {
-                  const { uiChanged } = applyIncomingCloudData({
-                    counts: { [msg.key]: msg.val },
-                    timestamps: { [msg.key]: msg.ts },
-                    resetAt: msg.resetAt || 0
-                  });
-                  if (uiChanged) mergedAny = true;
-                } else if (msg.type === 'photo_saved' && msg.code && msg.url) {
-                  handleIncomingPhotoUrl(msg.code, msg.url);
-                } else if (msg.type === 'photo_deleted' && msg.code) {
-                  handleIncomingPhotoDelete(msg.code);
-                }
-              }
-            } catch (err) {}
-          }
-        }
-      } catch (e) {}
-
-      syncPhotosFromCloud();
-
+      // Atualizacoes em tempo real chegam por SSE; nao repetir o historico de 24 h.
       isSyncingCloud = false;
 
       if (needsPush) {
@@ -1616,12 +1630,16 @@
     }
 
     // === SINCRONIZAÇÃO COMPLETA DE FOTOS (P2P WEBRTC + FILEBIN CLOUD) ===
-    async function syncPhotosFromCloud() {
+    async function syncPhotosFromCloud(force = false) {
+      const now = Date.now();
+      if (isSyncingPhotos || (!force && now - lastPhotoSyncAt < PHOTO_SYNC_INTERVAL_MS)) return;
+      isSyncingPhotos = true;
       try {
         const res = await fetch(`${FILEBIN_URL}`, { headers: { 'Accept': 'application/json' } });
         if (!res.ok) return;
         const binData = await res.json();
         if (!binData || !binData.files || !Array.isArray(binData.files)) return;
+        lastPhotoSyncAt = Date.now();
 
         for (const fileObj of binData.files) {
           const filename = fileObj.filename;
@@ -1649,7 +1667,11 @@
             } catch (err) {}
           }
         }
-      } catch (e) {}
+      } catch (e) {
+        // Retry on the next focus or manual refresh.
+      } finally {
+        isSyncingPhotos = false;
+      }
     }
 
     async function pushPhotoToCloud(code, src, deleted = false) {
@@ -1694,27 +1716,36 @@
       }
     }
 
-    async function handleIncomingPhotoUrl(code, url) {
+    async function handleIncomingPhotoUrl(code, url, ts = 0) {
       if (!code || !url) return;
+      const eventKey = incomingPhotoEventKey(code, ts, url);
+      if (handledIncomingPhotoEvents.has(eventKey) || pendingIncomingPhotoEvents.has(eventKey)) return;
+      pendingIncomingPhotoEvents.add(eventKey);
       try {
         const res = await fetch(url);
         if (!res.ok) return;
         const blob = await res.blob();
-        const reader = new FileReader();
-        reader.onload = async () => {
-          const dataUri = reader.result;
-          productPhotos[code] = dataUri;
-          await savePhotoToIDB(code, dataUri, false);
-          renderContent();
-          if (activePhotoCode === code && document.getElementById('photoDialog').open) {
-            refreshPhotoDialogView(code);
-          }
+        const dataUri = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result);
+          reader.onerror = () => reject(reader.error || new Error('Falha ao ler a foto recebida'));
+          reader.readAsDataURL(blob);
+        });
+        productPhotos[code] = dataUri;
+        await savePhotoToIDB(code, dataUri, false);
+        renderContent();
+        if (activePhotoCode === code && document.getElementById('photoDialog').open) {
+          refreshPhotoDialogView(code);
+        }
+        if (markIncomingPhotoEventHandled(eventKey)) {
           showToast(`FOTO RECEBIDA (${code})`);
-        };
-        reader.readAsDataURL(blob);
-      } catch (e) {}
+        }
+      } catch (e) {
+        // A proxima tentativa pode repetir o download se a rede ou leitura falhar.
+      } finally {
+        pendingIncomingPhotoEvents.delete(eventKey);
+      }
     }
-
     async function handleIncomingPhotoDelete(code) {
       if (!code || !productPhotos[code]) return;
       delete productPhotos[code];
@@ -1752,8 +1783,11 @@
         if (!activePeerConns.some(c => c.peer === conn.peer)) {
           activePeerConns.push(conn);
         }
-        // Ao conectar, envia fotos locais recém tiradas se o outro peer pedir
-        conn.send({ type: 'sync_ping', clientId });
+        // Ao conectar, troca ping e catálogo se tiver itens atualizados
+        conn.send({ type: 'sync_ping', clientId, catalogTs: catalogUpdatedAt });
+        if (catalogUpdatedAt && inventoryItems && inventoryItems.length) {
+          conn.send({ type: 'catalog_sync', clientId, items: inventoryItems, ts: catalogUpdatedAt });
+        }
       });
 
       conn.on('data', async data => {
@@ -1767,18 +1801,36 @@
           }, true);
         } else if (data.type === 'snapshot' && data.data) {
           applyIncomingCloudData(data.data, true);
-        } else if (data.type === 'photo_data' && data.code && data.dataUri) {
-          productPhotos[data.code] = data.dataUri;
-          await savePhotoToIDB(data.code, data.dataUri, false);
-          renderContent();
-          if (activePhotoCode === data.code && document.getElementById('photoDialog').open) {
-            refreshPhotoDialogView(data.code);
+        } else if (data.type === 'sync_ping') {
+          if (catalogUpdatedAt && data.catalogTs && catalogUpdatedAt > data.catalogTs) {
+            conn.send({ type: 'catalog_sync', clientId, items: inventoryItems, ts: catalogUpdatedAt });
+          } else if (catalogUpdatedAt && !data.catalogTs && inventoryItems && inventoryItems.length) {
+            conn.send({ type: 'catalog_sync', clientId, items: inventoryItems, ts: catalogUpdatedAt });
           }
-          showToast(`FOTO SINCRONIZADA EM TEMPO REAL (${data.code})`);
+        } else if (data.type === 'catalog_sync' && data.items) {
+          applyIncomingCatalog(data.items, data.ts);
+        } else if (data.type === 'photo_data' && data.code && data.dataUri) {
+          const eventKey = incomingPhotoEventKey(data.code, data.ts, 'peer-photo');
+          if (!handledIncomingPhotoEvents.has(eventKey) && !pendingIncomingPhotoEvents.has(eventKey)) {
+            pendingIncomingPhotoEvents.add(eventKey);
+            try {
+              productPhotos[data.code] = data.dataUri;
+              await savePhotoToIDB(data.code, data.dataUri, false);
+              renderContent();
+              if (activePhotoCode === data.code && document.getElementById('photoDialog').open) {
+                refreshPhotoDialogView(data.code);
+              }
+              if (markIncomingPhotoEventHandled(eventKey)) {
+                showToast(`FOTO SINCRONIZADA EM TEMPO REAL (${data.code})`);
+              }
+            } finally {
+              pendingIncomingPhotoEvents.delete(eventKey);
+            }
+          }
         } else if (data.type === 'photo_deleted' && data.code) {
           handleIncomingPhotoDelete(data.code);
         } else if (data.type === 'photo_saved' && data.code && data.url) {
-          handleIncomingPhotoUrl(data.code, data.url);
+          handleIncomingPhotoUrl(data.code, data.url, data.ts);
         }
       });
 
@@ -1832,7 +1884,7 @@
               applyIncomingCloudData(msg.data, true);
               setSaveStatus('SINCRONIZADO NA NUVEM · TEMPO REAL', 'saved');
             } else if (msg.type === 'photo_saved' && msg.code && msg.url) {
-              handleIncomingPhotoUrl(msg.code, msg.url);
+              handleIncomingPhotoUrl(msg.code, msg.url, msg.ts);
             } else if (msg.type === 'photo_deleted' && msg.code) {
               handleIncomingPhotoDelete(msg.code);
             } else if (msg.type === 'ping_pull') {
@@ -1845,7 +1897,7 @@
 
     function forceCloudSyncNow() {
       syncFromCloud(false);
-      syncPhotosFromCloud();
+      syncPhotosFromCloud(true);
     }
 
     async function initApp() {
@@ -1860,12 +1912,13 @@
       await initPhotoDB();
       initPeerSync();
       await syncFromCloud(true);
+      syncPhotosFromCloud();
       startRealtimeStream();
       setInterval(() => {
         if (document.visibilityState === 'visible') {
           syncFromCloud(true);
         }
-      }, 5000);
+      }, CLOUD_SYNC_INTERVAL_MS);
       window.addEventListener('focus', () => {
         syncFromCloud(true);
         syncPhotosFromCloud();
@@ -2510,20 +2563,26 @@
       }
       inventoryItems = newItems;
       currentDeposito = 'ALL';
+      catalogUpdatedAt = Date.now();
+      saveTimestampsToStorage();
       saveItemsToStorage();
+      broadcastCatalogToPeers();
       renderAll();
       closeUploadDialog();
-      showToast(`Atualizado (${newItems.length} itens)`);
+      showToast(`Atualizado e transmitido (${newItems.length} itens)`);
     }
 
     function restoreDefaultData() {
       if (!confirm('Restaurar planilha original?')) return;
       inventoryItems = JSON.parse(JSON.stringify(embeddedData.items || []));
       currentDeposito = 'ALL';
+      catalogUpdatedAt = Date.now();
+      saveTimestampsToStorage();
       saveItemsToStorage();
+      broadcastCatalogToPeers();
       renderAll();
       closeUploadDialog();
-      showToast('Original restaurado');
+      showToast('Original restaurado e transmitido');
     }
 
     function showToast(msg) {
