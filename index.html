@@ -1262,6 +1262,8 @@
     const STORAGE_KEY_TIMESTAMPS = 'wyntech_inv_timestamps_v2';
     const STORAGE_KEY_RESET_AT = 'wyntech_inv_reset_at_v2';
     const STORAGE_KEY_CATALOG_TS = 'wyntech_inv_catalog_ts_v2';
+    const STORAGE_KEY_API_LIMIT_UNTIL = 'wyntech_inv_api_limit_until_v1';
+    const STORAGE_KEY_CLOUD_READ_AT = 'wyntech_inv_cloud_read_at_v1';
 
     const CLOUD_API_URL = 'https://api.restful-api.dev/objects/ff808181a09d98f701a1cbaad8020bdb';
     const NTFY_TOPIC = 'wyntech_estoque_sync_prod_91827364';
@@ -1284,11 +1286,17 @@
     let isSyncingPhotos = false;
     let lastPhotoSyncAt = 0;
     const PHOTO_SYNC_INTERVAL_MS = 5 * 60 * 1000;
-    const CLOUD_SYNC_INTERVAL_MS = 5 * 1000;
+    const CLOUD_READ_COOLDOWN_MS = 5 * 60 * 1000;
+    const CLOUD_API_LIMIT_BACKOFF_MS = 24 * 60 * 60 * 1000;
+    const CLOUD_PUSH_DEBOUNCE_MS = 1000;
     const CLOUD_REQUEST_TIMEOUT_MS = 5000;
     const NTFY_REQUEST_TIMEOUT_MS = 3000;
     let isPushingCloud = false;
     let localChangeVersion = 0;
+    let lastCloudSyncAt = 0;
+    let cloudApiLimitUntil = 0;
+    try { cloudApiLimitUntil = Number(localStorage.getItem(STORAGE_KEY_API_LIMIT_UNTIL)) || 0; } catch (e) {}
+    const CLOUD_LIMIT_STATUS = 'LIMITE DIÁRIO DA NUVEM · TEMPO REAL ATIVO';
     function fetchWithTimeout(url, options = {}, timeoutMs = CLOUD_REQUEST_TIMEOUT_MS) {
       let signal;
       if (typeof AbortSignal !== 'undefined' && typeof AbortSignal.timeout === 'function') {
@@ -1299,6 +1307,37 @@
         signal = controller.signal;
       }
       return fetch(url, { ...options, signal });
+    }
+    function isCloudApiLimitActive() {
+      const now = Date.now();
+      try {
+        const storedUntil = Number(localStorage.getItem(STORAGE_KEY_API_LIMIT_UNTIL)) || 0;
+        cloudApiLimitUntil = Math.max(cloudApiLimitUntil, storedUntil);
+      } catch (e) {}
+      if (cloudApiLimitUntil <= now) {
+        cloudApiLimitUntil = 0;
+        try { localStorage.removeItem(STORAGE_KEY_API_LIMIT_UNTIL); } catch (e) {}
+        return false;
+      }
+      return true;
+    }
+    function markCloudApiLimit(until = 0, notifyPeers = true) {
+      const wasLimited = isCloudApiLimitActive();
+      cloudApiLimitUntil = Math.max(cloudApiLimitUntil, Number(until) || (Date.now() + CLOUD_API_LIMIT_BACKOFF_MS));
+      try { localStorage.setItem(STORAGE_KEY_API_LIMIT_UNTIL, String(cloudApiLimitUntil)); } catch (e) {}
+      if (!wasLimited && notifyPeers) {
+        const message = { type: 'cloud_limit', clientId, until: cloudApiLimitUntil };
+        fetchWithTimeout(NTFY_URL, { method: 'POST', body: JSON.stringify(message) }, NTFY_REQUEST_TIMEOUT_MS).catch(() => {});
+        broadcastToPeers(message);
+      }
+    }
+    async function isDailyRequestLimitResponse(response) {
+      if (!response || response.status !== 405) return false;
+      try { return /daily request limit/i.test(await response.clone().text()); } catch (e) { return false; }
+    }
+    function setRealtimeSyncStatus() {
+      if (isCloudApiLimitActive()) setSaveStatus(CLOUD_LIMIT_STATUS, 'error');
+      else setSaveStatus('DADOS ATUALIZADOS EM TEMPO REAL', 'saved');
     }
     const handledIncomingPhotoEvents = new Set();
     const pendingIncomingPhotoEvents = new Set();
@@ -1530,17 +1569,37 @@
       });
     }
 
-    async function syncFromCloud(silent = true) {
+    async function syncFromCloud(silent = true, force = false) {
       if (isSyncingCloud) return;
+      if (isCloudApiLimitActive()) {
+        setSaveStatus(CLOUD_LIMIT_STATUS, 'error');
+        return;
+      }
+      const now = Date.now();
+      if (!force) {
+        let storedReadAt = 0;
+        try { storedReadAt = Number(localStorage.getItem(STORAGE_KEY_CLOUD_READ_AT)) || 0; } catch (e) {}
+        lastCloudSyncAt = Math.max(lastCloudSyncAt, storedReadAt);
+        if (now - lastCloudSyncAt < CLOUD_READ_COOLDOWN_MS) return;
+      }
       isSyncingCloud = true;
+      lastCloudSyncAt = now;
+      try { localStorage.setItem(STORAGE_KEY_CLOUD_READ_AT, String(now)); } catch (e) {}
       if (!silent) setSaveStatus('SINCRONIZANDO COM A NUVEM...', 'syncing');
 
       let mergedAny = false;
       let needsPush = pendingCloudPush;
       let cloudReadOk = false;
+      let dailyLimitHit = false;
       try {
         const res = await fetchWithTimeout(`${CLOUD_API_URL}?_t=${Date.now()}`, { cache: 'no-store' }, CLOUD_REQUEST_TIMEOUT_MS);
-        if (!res.ok) throw new Error(`Cloud read failed: ${res.status}`);
+        if (!res.ok) {
+          if (await isDailyRequestLimitResponse(res)) {
+            markCloudApiLimit();
+            dailyLimitHit = true;
+          }
+          throw new Error(`Cloud read failed: ${res.status}`);
+        }
         const obj = await res.json();
         if (!obj || !obj.data) throw new Error('Cloud response has no inventory data');
         cloudReadOk = true;
@@ -1558,6 +1617,8 @@
         await pushStateToCloud();
       } else if (cloudReadOk) {
         setSaveStatus('SINCRONIZADO NA NUVEM · TEMPO REAL', 'saved');
+      } else if (dailyLimitHit || isCloudApiLimitActive()) {
+        setSaveStatus(CLOUD_LIMIT_STATUS, 'error');
       } else {
         setSaveStatus('SEM CONEXÃO COM A NUVEM · TENTANDO NOVAMENTE', 'error');
       }
@@ -1593,7 +1654,7 @@
       clearTimeout(syncPushTimer);
       syncPushTimer = setTimeout(() => {
         pushStateToCloud();
-      }, 350);
+      }, CLOUD_PUSH_DEBOUNCE_MS);
     }
 
     async function pushStateToCloud() {
@@ -1631,6 +1692,14 @@
         }
       })();
 
+      if (isCloudApiLimitActive()) {
+        realtimeOk = await realtimeSend;
+        pendingCloudPush = true;
+        setSaveStatus(CLOUD_LIMIT_STATUS, 'error');
+        isPushingCloud = false;
+        return;
+      }
+
       try {
         const res = await fetchWithTimeout(CLOUD_API_URL, {
           method: 'PUT',
@@ -1641,6 +1710,7 @@
           })
         }, CLOUD_REQUEST_TIMEOUT_MS);
         cloudOk = res.ok;
+        if (!res.ok && await isDailyRequestLimitResponse(res)) markCloudApiLimit();
       } catch (e) {
         cloudOk = false;
       }
@@ -1661,7 +1731,10 @@
       const changedDuringPush = localChangeVersion !== versionAtStart ||
         JSON.stringify({ counts: physicalCounts, timestamps: countTimestamps, resetAt: lastResetAt }) !== stateAtStart;
       pendingCloudPush = !cloudOk || changedDuringPush;
-      if (cloudOk && !changedDuringPush) {
+      if (isCloudApiLimitActive()) {
+        pendingCloudPush = true;
+        setSaveStatus(CLOUD_LIMIT_STATUS, 'error');
+      } else if (cloudOk && !changedDuringPush) {
         setSaveStatus('SINCRONIZADO NA NUVEM · TEMPO REAL', 'saved');
       } else if (cloudOk) {
         setSaveStatus('NOVA ALTERAÇÃO AGUARDANDO SINCRONIZAÇÃO...', 'syncing');
@@ -1913,6 +1986,10 @@
       try {
         if (ntfyEventSource) ntfyEventSource.close();
         ntfyEventSource = new EventSource(`${NTFY_URL}/sse`);
+        ntfyEventSource.onopen = () => {
+          // EventSource reconnects automatically; do one throttled catch-up read after connection/reconnection.
+          syncFromCloud(true);
+        };
         ntfyEventSource.onmessage = event => {
           try {
             const wrapper = JSON.parse(event.data);
@@ -1920,7 +1997,10 @@
             const msg = JSON.parse(wrapper.message);
             if (!msg || msg.clientId === clientId) return;
 
-            if (msg.type === 'peer_hello' && msg.peerId) {
+            if (msg.type === 'cloud_limit') {
+              markCloudApiLimit(msg.until, false);
+              setSaveStatus(CLOUD_LIMIT_STATUS, 'error');
+            } else if (msg.type === 'peer_hello' && msg.peerId) {
               connectToRemotePeer(msg.peerId);
             } else if (msg.type === 'delta' && msg.key) {
               applyIncomingCloudData({
@@ -1928,10 +2008,10 @@
                 timestamps: { [msg.key]: msg.ts },
                 resetAt: msg.resetAt || 0
               }, true);
-              setSaveStatus('SINCRONIZADO NA NUVEM · TEMPO REAL', 'saved');
+              setRealtimeSyncStatus();
             } else if (msg.type === 'snapshot' && msg.data) {
               applyIncomingCloudData(msg.data, true);
-              setSaveStatus('SINCRONIZADO NA NUVEM · TEMPO REAL', 'saved');
+              setRealtimeSyncStatus();
             } else if (msg.type === 'photo_saved' && msg.code && msg.url) {
               handleIncomingPhotoUrl(msg.code, msg.url, msg.ts);
             } else if (msg.type === 'photo_deleted' && msg.code) {
@@ -1945,7 +2025,7 @@
     }
 
     function forceCloudSyncNow() {
-      syncFromCloud(false);
+      syncFromCloud(false, true);
       syncPhotosFromCloud(true);
     }
 
@@ -1960,14 +2040,9 @@
       renderAll();
       await initPhotoDB();
       initPeerSync();
-      // Subscribe before the first network read so a slow API cannot delay SSE.
+      // Keep SSE as the realtime path; the public REST API has a strict daily request quota.
       startRealtimeStream();
       syncPhotosFromCloud();
-      setInterval(() => {
-        if (document.visibilityState === 'visible') {
-          syncFromCloud(true);
-        }
-      }, CLOUD_SYNC_INTERVAL_MS);
       window.addEventListener('focus', () => {
         syncFromCloud(true);
         syncPhotosFromCloud();
