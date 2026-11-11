@@ -1,11 +1,12 @@
-const CACHE_NAME = 'wyntech-estoque-v2';
+const CACHE_NAME = 'wyntech-estoque-v3';
 const ASSETS = [
   './',
   './index.html',
   './manifest.webmanifest',
   './icon-192.png',
   './icon-512.png',
-  'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js'
+  'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js',
+  'https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js'
 ];
 
 self.addEventListener('install', event => {
@@ -25,7 +26,10 @@ self.addEventListener('activate', event => {
 self.addEventListener('fetch', event => {
   if (event.request.method !== 'GET') return;
   const url = new URL(event.request.url);
-  if (url.hostname.includes('restful-api.dev') || url.hostname.includes('ntfy.sh')) {
+  if (url.hostname.includes('restful-api.dev') ||
+      url.hostname.includes('ntfy.sh') ||
+      url.hostname.includes('filebin.net') ||
+      url.hostname.includes('peerjs.com')) {
     return;
   }
   event.respondWith(
