@@ -903,9 +903,186 @@
       *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; }
     }
 
+
+    /* LOGIN OVERLAY E SINCRONIZAÇÃO EM NUVEM */
+    .login-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 9999;
+      background: linear-gradient(145deg, #0b1020 0%, #13223f 55%, #1d4ed8 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      color: #fff;
+    }
+    .login-overlay.hidden {
+      display: none !important;
+    }
+    .login-card {
+      width: min(100%, 380px);
+      background: rgba(17, 24, 39, 0.92);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      border-radius: 22px;
+      padding: 26px 22px 24px;
+      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55);
+      backdrop-filter: blur(12px);
+      text-align: center;
+    }
+    .login-card img {
+      height: 36px;
+      width: auto;
+      margin: 0 auto 12px;
+      display: block;
+    }
+    .login-title {
+      font-size: 17px;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      margin: 0 0 4px;
+      color: #fff;
+    }
+    .login-sub {
+      font-size: 11px;
+      color: rgba(226, 232, 240, 0.75);
+      margin-bottom: 20px;
+      font-weight: 700;
+    }
+    .login-field-wrap {
+      position: relative;
+      margin-bottom: 12px;
+    }
+    .login-input {
+      width: 100%;
+      height: 48px;
+      border-radius: 13px;
+      border: 1.5px solid rgba(255, 255, 255, 0.2);
+      background: rgba(15, 23, 42, 0.85);
+      color: #fff;
+      padding: 0 46px 0 14px;
+      font-size: 16px;
+      font-weight: 700;
+      outline: none;
+      text-transform: none !important;
+      letter-spacing: 0.03em;
+    }
+    .login-input::placeholder {
+      color: rgba(226, 232, 240, 0.5);
+      text-transform: uppercase;
+    }
+    .login-input:focus {
+      border-color: #60a5fa;
+      box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.25);
+    }
+    .login-eye-btn {
+      position: absolute;
+      right: 8px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 34px;
+      height: 34px;
+      border-radius: 9px;
+      border: 0;
+      background: rgba(255, 255, 255, 0.08);
+      color: #cbd5e1;
+      font-size: 15px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .login-remember {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      font-size: 11px;
+      color: rgba(226, 232, 240, 0.85);
+      margin-bottom: 16px;
+      cursor: pointer;
+      user-select: none;
+    }
+    .login-remember input {
+      width: 16px;
+      height: 16px;
+      accent-color: #2563eb;
+    }
+    .login-submit-btn {
+      width: 100%;
+      height: 48px;
+      border-radius: 13px;
+      border: 0;
+      background: linear-gradient(135deg, #2563eb 0%, #0ea5e9 100%);
+      color: #fff;
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      cursor: pointer;
+      box-shadow: 0 8px 20px rgba(37, 99, 235, 0.4);
+    }
+    .login-submit-btn:active {
+      transform: scale(0.98);
+    }
+    .login-error {
+      margin-top: 12px;
+      padding: 8px 10px;
+      border-radius: 10px;
+      background: rgba(244, 63, 94, 0.2);
+      border: 1px solid rgba(244, 63, 94, 0.45);
+      color: #fecdd3;
+      font-size: 11px;
+      font-weight: 700;
+      display: none;
+    }
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+    .autosave-status {
+      cursor: pointer;
+      user-select: none;
+      padding: 4px 10px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.08);
+      width: fit-content;
+    }
+    .autosave-status[data-state="syncing"] .save-dot {
+      background: #fbbf24;
+      box-shadow: 0 0 0 3px rgba(251, 191, 36, 0.22);
+    }
+
   </style>
 </head>
 <body>
+
+  <!-- TELA DE LOGIN -->
+  <div class="login-overlay" id="loginOverlay">
+    <form class="login-card" onsubmit="handleLoginSubmit(event)">
+      <img src="data:image/png;base64,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" alt="Wyntech">
+      <h1 class="login-title">CONTROLE DE ESTOQUE</h1>
+      <div class="login-sub">ACESSO SINCRONIZADO EM NUVEM</div>
+      <div class="login-field-wrap">
+        <input
+          type="password"
+          id="loginPasswordInput"
+          class="login-input"
+          placeholder="Digite a senha..."
+          autocomplete="current-password"
+          required
+        >
+        <button type="button" class="login-eye-btn" onclick="togglePasswordVisibility()" title="Mostrar/Ocultar senha">👁️</button>
+      </div>
+      <label class="login-remember">
+        <input type="checkbox" id="loginRememberCheck" checked>
+        Manter conectado neste aparelho
+      </label>
+      <button type="submit" class="login-submit-btn">ENTRAR NO SISTEMA</button>
+      <div class="login-error" id="loginErrorMsg">SENHA INCORRETA. DIGITE: Estoque@2026</div>
+    </form>
+  </div>
+
 
   <input type="file" id="itemPhotoInput" accept="image/*" style="display:none" onchange="onItemPhotoSelected(event)">
 
@@ -917,7 +1094,11 @@
           <div class="brand-sub" id="depActiveSubtitle">Todos os depósitos</div>
         </div>
       </div>
-      <button class="theme-btn" onclick="toggleTheme()" title="Tema Claro/Escuro">◐</button>
+      <div class="header-actions">
+        <button class="theme-btn" onclick="forceCloudSyncNow()" title="Sincronizar Agora">🔄</button>
+        <button class="theme-btn" onclick="toggleTheme()" title="Tema Claro/Escuro">◐</button>
+        <button class="theme-btn" onclick="logoutApp()" title="Bloquear / Sair">🔒</button>
+      </div>
     </div>
 
     <div class="kpi-strip">
@@ -938,9 +1119,9 @@
         <span>A menos</span>
       </div>
     </div>
-    <div class="autosave-status" id="autosaveStatus" role="status" aria-live="polite">
+    <div class="autosave-status" id="autosaveStatus" role="status" aria-live="polite" onclick="forceCloudSyncNow()" title="Toque para sincronizar agora">
       <span class="save-dot" aria-hidden="true"></span>
-      <span id="autosaveStatusText">SALVAMENTO AUTOMÁTICO ATIVO</span>
+      <span id="autosaveStatusText">SINCRONIZAÇÃO EM NUVEM ATIVA</span>
     </div>
   </header>
 
@@ -1074,14 +1255,467 @@
     let currentSearch = '';
     let activePhotoCode = null;
 
+
+    // === CONFIGURAÇÃO DE LOGIN E SINCRONIZAÇÃO EM NUVEM (TEMPO REAL) ===
+    const STORAGE_KEY_AUTH = 'wyntech_inv_auth_v2';
+    const STORAGE_KEY_TIMESTAMPS = 'wyntech_inv_timestamps_v2';
+    const STORAGE_KEY_RESET_AT = 'wyntech_inv_reset_at_v2';
+    const STORAGE_KEY_CLIENT_ID = 'wyntech_inv_client_id_v2';
+
+    const CLOUD_API_URL = 'https://api.restful-api.dev/objects/ff808181a09d98f701a1cbaad8020bdb';
+    const CLOUD_PHOTOS_URL = 'https://api.restful-api.dev/objects/ff808181a09d98f701a1cbaada4f0bdc';
+    const NTFY_TOPIC = 'wyntech_estoque_sync_prod_91827364';
+    const NTFY_URL = `https://ntfy.sh/${NTFY_TOPIC}`;
+
+    let countTimestamps = {};
+    let lastResetAt = 0;
+    let clientId = localStorage.getItem(STORAGE_KEY_CLIENT_ID);
+    if (!clientId) {
+      clientId = 'dev_' + Math.random().toString(36).slice(2, 10) + '_' + Date.now().toString(36);
+      try { localStorage.setItem(STORAGE_KEY_CLIENT_ID, clientId); } catch (e) {}
+    }
+
+    let isSyncingCloud = false;
+    let syncPushTimer = null;
+    let ntfyEventSource = null;
+    let pendingCloudPush = false;
+    let customPhotoChanges = {};
+
+    async function syncPhotosFromCloud() {
+      try {
+        const res = await fetch(`${CLOUD_PHOTOS_URL}?_t=${Date.now()}`, { cache: 'no-store' });
+        if (!res.ok) return;
+        const obj = await res.json();
+        if (!obj || !obj.data || !obj.data.photos) return;
+        const remotePhotos = obj.data.photos;
+        let changed = false;
+        for (const [code, entry] of Object.entries(remotePhotos)) {
+          if (!entry) continue;
+          const localEntry = customPhotoChanges[code];
+          if (!localEntry || (entry.ts || 0) > (localEntry.ts || 0)) {
+            customPhotoChanges[code] = entry;
+            if (entry.deleted) {
+              if (productPhotos[code]) {
+                delete productPhotos[code];
+                await savePhotoToIDB(code, null, true);
+                changed = true;
+              }
+            } else if (entry.src && productPhotos[code] !== entry.src) {
+              productPhotos[code] = entry.src;
+              await savePhotoToIDB(code, entry.src, false);
+              changed = true;
+            }
+          }
+        }
+        if (changed) renderContent();
+      } catch (e) {}
+    }
+
+    async function pushPhotoToCloud(code, src, deleted = false) {
+      const ts = Date.now();
+      customPhotoChanges[code] = { src: deleted ? null : src, deleted, ts };
+      try {
+        const getRes = await fetch(`${CLOUD_PHOTOS_URL}?_t=${ts}`, { cache: 'no-store' });
+        let photosMap = {};
+        if (getRes.ok) {
+          const curObj = await getRes.json();
+          if (curObj && curObj.data && curObj.data.photos) photosMap = curObj.data.photos;
+        }
+        photosMap[code] = customPhotoChanges[code];
+        await fetch(CLOUD_PHOTOS_URL, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: 'wyntech-controle-estoque-photos-v1',
+            data: { photos: photosMap, updatedAt: ts }
+          })
+        });
+        await fetch(NTFY_URL, {
+          method: 'POST',
+          body: JSON.stringify({ type: 'photo_sync', clientId, code, ts })
+        });
+      } catch (e) {}
+    }
+
+    function checkIsAuthenticated() {
+      try {
+        return localStorage.getItem(STORAGE_KEY_AUTH) === 'ok_2026' ||
+               sessionStorage.getItem(STORAGE_KEY_AUTH) === 'ok_2026';
+      } catch (e) {
+        return false;
+      }
+    }
+
+    function updateLoginOverlayUI() {
+      const overlay = document.getElementById('loginOverlay');
+      if (!overlay) return;
+      if (checkIsAuthenticated()) {
+        overlay.classList.add('hidden');
+      } else {
+        overlay.classList.remove('hidden');
+        setTimeout(() => {
+          const inp = document.getElementById('loginPasswordInput');
+          if (inp) inp.focus();
+        }, 80);
+      }
+    }
+
+    function togglePasswordVisibility() {
+      const inp = document.getElementById('loginPasswordInput');
+      if (!inp) return;
+      inp.type = inp.type === 'password' ? 'text' : 'password';
+    }
+
+    function handleLoginSubmit(event) {
+      if (event) event.preventDefault();
+      const inp = document.getElementById('loginPasswordInput');
+      const err = document.getElementById('loginErrorMsg');
+      const remember = document.getElementById('loginRememberCheck');
+      const raw = String(inp ? inp.value : '').trim();
+
+      if (raw.toLowerCase() === 'estoque@2026') {
+        try {
+          sessionStorage.setItem(STORAGE_KEY_AUTH, 'ok_2026');
+          if (remember && remember.checked) {
+            localStorage.setItem(STORAGE_KEY_AUTH, 'ok_2026');
+          } else {
+            localStorage.removeItem(STORAGE_KEY_AUTH);
+          }
+        } catch (e) {}
+        if (err) err.style.display = 'none';
+        if (inp) inp.value = '';
+        updateLoginOverlayUI();
+        showToast('ACESSO LIBERADO · SINCRONIZANDO...');
+        forceCloudSyncNow();
+      } else {
+        if (err) {
+          err.textContent = 'SENHA INCORRETA. TENTE NOVAMENTE.';
+          err.style.display = 'block';
+        }
+      }
+    }
+
+    function logoutApp() {
+      try {
+        localStorage.removeItem(STORAGE_KEY_AUTH);
+        sessionStorage.removeItem(STORAGE_KEY_AUTH);
+      } catch (e) {}
+      updateLoginOverlayUI();
+      showToast('SESSÃO BLOQUEADA');
+    }
+
+    function loadTimestampsFromStorage() {
+      try {
+        const savedTs = localStorage.getItem(STORAGE_KEY_TIMESTAMPS);
+        countTimestamps = savedTs ? JSON.parse(savedTs) : {};
+        const savedReset = localStorage.getItem(STORAGE_KEY_RESET_AT);
+        lastResetAt = savedReset ? Number(savedReset) || 0 : 0;
+      } catch (e) {
+        countTimestamps = {};
+        lastResetAt = 0;
+      }
+      // Garantir que contagens já feitas neste aparelho antes da atualização tenham timestamp para subirem p/ nuvem
+      let migrated = false;
+      const now = Date.now();
+      for (const k of Object.keys(physicalCounts)) {
+        if (!countTimestamps[k]) {
+          countTimestamps[k] = now;
+          migrated = true;
+        }
+      }
+      if (migrated) {
+        saveTimestampsToStorage();
+        pendingCloudPush = true;
+      }
+    }
+
+    function saveTimestampsToStorage() {
+      try {
+        localStorage.setItem(STORAGE_KEY_TIMESTAMPS, JSON.stringify(countTimestamps));
+        localStorage.setItem(STORAGE_KEY_RESET_AT, String(lastResetAt));
+      } catch (e) {}
+    }
+
+    function applyIncomingCloudData(cloudData, fromRealtime = false) {
+      if (!cloudData || typeof cloudData !== 'object') return { uiChanged: false, localIsNewer: false };
+      let uiChanged = false;
+      let localIsNewer = false;
+
+      const remoteResetAt = Number(cloudData.resetAt) || 0;
+      if (remoteResetAt > lastResetAt) {
+        lastResetAt = remoteResetAt;
+        for (const k of Object.keys(physicalCounts)) {
+          if ((countTimestamps[k] || 0) <= remoteResetAt) {
+            delete physicalCounts[k];
+            uiChanged = true;
+          }
+        }
+      } else if (lastResetAt > remoteResetAt) {
+        localIsNewer = true;
+      }
+
+      const remoteCounts = cloudData.counts || {};
+      const remoteTs = cloudData.timestamps || {};
+      const allKeys = new Set([...Object.keys(remoteTs), ...Object.keys(remoteCounts), ...Object.keys(countTimestamps), ...Object.keys(physicalCounts)]);
+
+      for (const key of allKeys) {
+        const rTs = Number(remoteTs[key]) || (remoteCounts[key] !== undefined ? 1 : 0);
+        const lTs = Number(countTimestamps[key]) || (physicalCounts[key] !== undefined ? 1 : 0);
+
+        if (rTs > lTs) {
+          countTimestamps[key] = rTs;
+          const rVal = remoteCounts[key];
+          if (rVal === null || rVal === undefined || rVal === '') {
+            if (physicalCounts[key] !== undefined) {
+              delete physicalCounts[key];
+              uiChanged = true;
+            }
+          } else {
+            const numVal = Number(rVal);
+            if (!Number.isNaN(numVal) && physicalCounts[key] !== numVal) {
+              physicalCounts[key] = numVal;
+              uiChanged = true;
+            }
+          }
+        } else if (lTs > rTs) {
+          localIsNewer = true;
+        } else if (rTs === lTs && rTs > 0) {
+          const rVal = remoteCounts[key];
+          const lVal = physicalCounts[key];
+          if (rVal !== lVal && rVal !== undefined) {
+            if (rVal === null) delete physicalCounts[key];
+            else physicalCounts[key] = Number(rVal);
+            uiChanged = true;
+          }
+        }
+      }
+
+      if (uiChanged) {
+        try {
+          localStorage.setItem(STORAGE_KEY_COUNTS, JSON.stringify(physicalCounts));
+          saveTimestampsToStorage();
+        } catch (e) {}
+        refreshUIAfterCloudMerge();
+      }
+      return { uiChanged, localIsNewer };
+    }
+
+    function refreshUIAfterCloudMerge() {
+      updateSummaryKPIs();
+      const activeEl = document.activeElement;
+      const focusedKey = activeEl && activeEl.dataset ? activeEl.dataset.inputKey : null;
+
+      // Atualizar cartões visíveis sem interromper digitação em andamento
+      const cards = document.querySelectorAll('[data-row-key]');
+      if (!cards.length || currentStatusFilter !== 'all') {
+        renderContent();
+        return;
+      }
+      cards.forEach(card => {
+        const key = card.getAttribute('data-row-key');
+        if (!key) return;
+        updateSingleCardDOM(key);
+        if (key !== focusedKey) {
+          const inp = card.querySelector('input.m-qty-input');
+          if (inp) {
+            const hasVal = physicalCounts[key] !== undefined && physicalCounts[key] !== null;
+            const nextStr = hasVal ? String(physicalCounts[key]) : '';
+            if (inp.value !== nextStr) inp.value = nextStr;
+          }
+        }
+      });
+    }
+
+    async function syncFromCloud(silent = true) {
+      if (isSyncingCloud) return;
+      isSyncingCloud = true;
+      if (!silent) setSaveStatus('SINCRONIZANDO COM A NUVEM...', 'syncing');
+
+      let mergedAny = false;
+      let needsPush = pendingCloudPush;
+
+      try {
+        // 1. Buscar estado persistente no banco em nuvem
+        const res = await fetch(`${CLOUD_API_URL}?_t=${Date.now()}`, { cache: 'no-store' });
+        if (res.ok) {
+          const obj = await res.json();
+          if (obj && obj.data) {
+            const { uiChanged, localIsNewer } = applyIncomingCloudData(obj.data);
+            if (uiChanged) mergedAny = true;
+            if (localIsNewer) needsPush = true;
+          }
+        }
+      } catch (e) {}
+
+      try {
+        // 2. Buscar histórico recente do canal de tempo real (ntfy)
+        const ntfyRes = await fetch(`${NTFY_URL}/json?poll=1&since=24h&_t=${Date.now()}`, { cache: 'no-store' });
+        if (ntfyRes.ok) {
+          const text = await ntfyRes.text();
+          const lines = text.split('\n').filter(Boolean);
+          for (const line of lines) {
+            try {
+              const evt = JSON.parse(line);
+              if (evt && evt.event === 'message' && evt.message) {
+                const msg = JSON.parse(evt.message);
+                if (msg.type === 'snapshot' && msg.data) {
+                  const { uiChanged } = applyIncomingCloudData(msg.data);
+                  if (uiChanged) mergedAny = true;
+                } else if (msg.type === 'delta' && msg.key) {
+                  const { uiChanged } = applyIncomingCloudData({
+                    counts: { [msg.key]: msg.val },
+                    timestamps: { [msg.key]: msg.ts },
+                    resetAt: msg.resetAt || 0
+                  });
+                  if (uiChanged) mergedAny = true;
+                }
+              }
+            } catch (err) {}
+          }
+        }
+      } catch (e) {}
+
+      isSyncingCloud = false;
+
+      if (needsPush) {
+        pendingCloudPush = false;
+        await pushStateToCloud();
+      } else {
+        setSaveStatus('SINCRONIZADO NA NUVEM · TEMPO REAL', 'saved');
+      }
+
+      if (!silent && mergedAny) {
+        showToast('DADOS ATUALIZADOS DA NUVEM');
+      }
+    }
+
+    function scheduleCloudPush(changedKey = null) {
+      pendingCloudPush = true;
+      setSaveStatus('SALVANDO NA NUVEM...', 'syncing');
+
+      // Disparo imediato do delta via ntfy para atualização instantânea (< 0.5s) entre celular e PC
+      if (changedKey) {
+        const val = physicalCounts[changedKey] !== undefined ? physicalCounts[changedKey] : null;
+        const ts = countTimestamps[changedKey] || Date.now();
+        fetch(NTFY_URL, {
+          method: 'POST',
+          body: JSON.stringify({
+            type: 'delta',
+            clientId,
+            key: changedKey,
+            val,
+            ts,
+            resetAt: lastResetAt
+          })
+        }).catch(() => {});
+      }
+
+      clearTimeout(syncPushTimer);
+      syncPushTimer = setTimeout(() => {
+        pushStateToCloud();
+      }, 350);
+    }
+
+    async function pushStateToCloud() {
+      const payloadData = {
+        counts: physicalCounts,
+        timestamps: countTimestamps,
+        resetAt: lastResetAt,
+        updatedAt: Date.now(),
+        clientId
+      };
+
+      let ok = false;
+      try {
+        const res = await fetch(CLOUD_API_URL, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: 'wyntech-controle-estoque-prod-v1',
+            data: payloadData
+          })
+        });
+        if (res.ok) ok = true;
+      } catch (e) {}
+
+      try {
+        const snapStr = JSON.stringify({ type: 'snapshot', clientId, data: payloadData });
+        if (snapStr.length < 3800) {
+          const r2 = await fetch(NTFY_URL, {
+            method: 'POST',
+            body: snapStr
+          });
+          if (r2.ok) ok = true;
+        } else {
+          const r2 = await fetch(NTFY_URL, {
+            method: 'POST',
+            body: JSON.stringify({ type: 'ping_pull', clientId, ts: Date.now() })
+          });
+          if (r2.ok) ok = true;
+        }
+      } catch (e) {}
+
+      if (ok) {
+        pendingCloudPush = false;
+        setSaveStatus('SINCRONIZADO NA NUVEM · TEMPO REAL', 'saved');
+      } else {
+        setSaveStatus('SALVO NO APARELHO (AGUARDANDO REDE)', 'error');
+      }
+    }
+
+    function startRealtimeStream() {
+      if (typeof EventSource === 'undefined') return;
+      try {
+        if (ntfyEventSource) ntfyEventSource.close();
+        ntfyEventSource = new EventSource(`${NTFY_URL}/sse`);
+        ntfyEventSource.onmessage = event => {
+          try {
+            const wrapper = JSON.parse(event.data);
+            if (!wrapper || !wrapper.message) return;
+            const msg = JSON.parse(wrapper.message);
+            if (!msg || msg.clientId === clientId) return;
+
+            if (msg.type === 'delta' && msg.key) {
+              applyIncomingCloudData({
+                counts: { [msg.key]: msg.val },
+                timestamps: { [msg.key]: msg.ts },
+                resetAt: msg.resetAt || 0
+              }, true);
+              setSaveStatus('SINCRONIZADO NA NUVEM · TEMPO REAL', 'saved');
+            } else if (msg.type === 'snapshot' && msg.data) {
+              applyIncomingCloudData(msg.data, true);
+              setSaveStatus('SINCRONIZADO NA NUVEM · TEMPO REAL', 'saved');
+            } else if (msg.type === 'ping_pull') {
+              syncFromCloud(true);
+            } else if (msg.type === 'photo_sync') {
+              syncPhotosFromCloud();
+            }
+          } catch (e) {}
+        };
+      } catch (e) {}
+    }
+
+    function forceCloudSyncNow() {
+      syncFromCloud(false);
+    }
+
     async function initApp() {
       const savedTheme = localStorage.getItem(STORAGE_KEY_THEME);
       if (savedTheme === 'dark' || savedTheme === 'light') {
         document.documentElement.setAttribute('data-theme', savedTheme);
       }
+      updateLoginOverlayUI();
       loadFromStorage();
+      loadTimestampsFromStorage();
       renderAll();
       await initPhotoDB();
+      await syncFromCloud(true);
+      syncPhotosFromCloud();
+      startRealtimeStream();
+      setInterval(() => {
+        if (document.visibilityState === 'visible') syncFromCloud(true);
+      }, 4000);
+      window.addEventListener('focus', () => syncFromCloud(true));
     }
 
     function toggleTheme() {
@@ -1114,7 +1748,7 @@
       try {
         localStorage.setItem(STORAGE_KEY_COUNTS, JSON.stringify(physicalCounts));
         localStorage.setItem('wyntech_inv_last_saved_v1', new Date().toISOString());
-        setSaveStatus('CONTAGEM SALVA NESTE APARELHO');
+        setSaveStatus('SINCRONIZADO NA NUVEM · TEMPO REAL');
         return true;
       } catch (e) {
         setSaveStatus('NÃO FOI POSSÍVEL SALVAR NESTE NAVEGADOR', 'error');
@@ -1202,6 +1836,7 @@
         const dataUri = await readAndCompressPhoto(file);
         productPhotos[activePhotoCode] = dataUri;
         await savePhotoToIDB(activePhotoCode, dataUri, false);
+        pushPhotoToCloud(activePhotoCode, dataUri, false);
         renderContent();
         if (document.getElementById('photoDialog').open) refreshPhotoDialogView(activePhotoCode);
         showToast('Foto salva!');
@@ -1266,6 +1901,7 @@
       if (!activePhotoCode || !productPhotos[activePhotoCode]) return;
       delete productPhotos[activePhotoCode];
       await savePhotoToIDB(activePhotoCode, null, true);
+      pushPhotoToCloud(activePhotoCode, null, true);
       refreshPhotoDialogView(activePhotoCode);
       renderContent();
       showToast('Foto removida');
@@ -1425,7 +2061,10 @@
         if (Number.isNaN(num)) return;
         physicalCounts[key] = num;
       }
+      countTimestamps[key] = Date.now();
+      saveTimestampsToStorage();
       saveCountsToStorage();
+      scheduleCloudPush(key);
       updateSingleCardDOM(key);
       updateSummaryKPIs();
     }
@@ -1436,7 +2075,10 @@
       const cur = physicalCounts[key] !== undefined ? Number(physicalCounts[key]) : item.qtdSistema;
       const next = Math.max(0, cur + delta);
       physicalCounts[key] = next;
+      countTimestamps[key] = Date.now();
+      saveTimestampsToStorage();
       saveCountsToStorage();
+      scheduleCloudPush(key);
       const inp = document.querySelector(`input[data-input-key="${CSS.escape(key)}"]`);
       if (inp) inp.value = String(next);
       updateSingleCardDOM(key);
@@ -1487,10 +2129,19 @@
       const visible = getFilteredList().filter(i => i.hasCount);
       if (!visible.length) return showToast('Nenhuma contagem nesta visão.');
       if (!confirm(`Zerar ${visible.length} contagens exibidas?`)) return;
-      visible.forEach(i => delete physicalCounts[i.key]);
+      const now = Date.now();
+      visible.forEach(i => {
+        delete physicalCounts[i.key];
+        countTimestamps[i.key] = now;
+      });
+      if (currentDeposito === 'ALL' && currentStatusFilter === 'all' && !currentSearch) {
+        lastResetAt = now;
+      }
+      saveTimestampsToStorage();
       saveCountsToStorage();
+      scheduleCloudPush();
       renderAll();
-      showToast('Contagens zeradas');
+      showToast('Contagens zeradas na nuvem');
     }
 
     async function exportToExcel(onlyDivergent = false) {
