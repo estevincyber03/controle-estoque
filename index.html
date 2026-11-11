@@ -1189,7 +1189,7 @@
       <div class="photo-box" onclick="triggerPhotoUploadForCurrent()">
         <img id="photoDialogImg" alt="Foto" style="display:none">
         <div id="photoDialogEmpty" style="text-align:center;color:var(--muted);font-size:13px;">
-          <div style="font-size:28px;margin-bottom:6px;">📷</div>
+          
           Toque aqui para tirar ou escolher foto
         </div>
       </div>
@@ -1197,7 +1197,7 @@
     <div class="dlg-foot">
       <button class="btn-m" id="removePhotoBtn" onclick="removeCurrentPhoto()" style="display:none;margin-right:auto;color:#e11d48;">Excluir</button>
       <button class="btn-m" onclick="closePhotoDialog()">Fechar</button>
-      <button class="btn-m primary" onclick="triggerPhotoUploadForCurrent()">📷 Foto</button>
+      <button class="btn-m primary" onclick="triggerPhotoUploadForCurrent()">Nova Foto</button>
     </div>
   </dialog>
 
@@ -2215,14 +2215,14 @@
         const photoSrc = productPhotos[item.produto];
         const thumbContent = photoSrc
           ? `<img src="${photoSrc}" alt="${codeAttr}" loading="lazy">`
-          : `<div class="m-thumb-empty"><span>📷</span>Foto</div>`;
+          : `<div class="m-thumb-empty">Sem foto</div>`;
 
         return `
           <article class="m-card st-${item.status}" data-row-key="${keyAttr}">
             <div class="m-top">
               <div class="m-thumb" onclick="openPhotoDialog('${codeAttr}', event)">
                 ${thumbContent}
-                <button type="button" class="m-cam-badge" onclick="triggerPhotoUpload('${codeAttr}', event)">📷</button>
+                
               </div>
               <div class="m-info">
                 <div class="m-badges">
